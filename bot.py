@@ -80,3 +80,48 @@ class Bot(Client):
     async def stop(self, *args):
         await super().stop()
         self.LOGGER(__name__).info("Bot stopped.")
+
+
+    async def file_dispatcher(self, message, file):
+        """
+        Dispatches the file to the chat.
+        """
+        if message.chat.type == "private":
+            self.LOGGER(__name__).info(f"{message.chat.id} - {message.chat.username}: {message.text}")
+        else:
+            self.LOGGER(__name__).info(f"{message.chat.id} - {message.chat.title}: {message.text}")
+        chat_id = message.chat.id
+        if message.chat.type == "private":
+            if not await self.is_user_authorized(message.from_user.id):
+                await message.reply_text(
+                    "You are not authorized to use this bot. Please contact the administrator."
+                )
+                return
+        try:
+            await self.send_message(chat_id=chat_id, text=f"**Processing your Request...**\n\n**Please wait a few moments.**", reply_to_message_id=message.id)
+        except Exception as a:
+            await message.reply_text(
+                f"An error occurred while sending the message.\n\n```\n{a}\n```"
+            )
+        self.LOGGER(__name__).info(f"Downloading: {file.file_name} - {file.file_size} bytes.")
+        try:
+            await file.download(file.file_name)
+            if file.file_name.endswith((".mkv", ".mp4")):
+                # Upload to telegram as video
+                await message.reply_video(
+                    file.file_name,
+                    caption=f"**{file.file_name}**",
+                    reply_to_message_id=message.id
+                )
+            else:
+                # Upload to telegram as document
+                await message.reply_document(
+                    file.file_name,
+                    caption=f"**{file.file_name}**",
+                    reply_to_message_id=message.id
+                )
+            self.LOGGER(__name__).info(f"Uploaded {file.file_name} - {file.file_size} bytes.")
+        except Exception as a:
+            await message.reply_text(
+                f"An error occurred while sending the file.\n\n```\n{a}\n```"
+            )
